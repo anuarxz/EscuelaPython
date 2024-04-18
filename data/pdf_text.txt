@@ -1,0 +1,184 @@
+On the Measure of Intelligence
+Franc ¸ois Chollet
+Google, Inc.
+fchollet@google.com
+November 5, 2019
+Abstract
+To make deliberate progress towards more intelligent and more human-like artiﬁcial
+systems, we need to be following an appropriate feedback signal: we need to be able to
+deﬁne and evaluate intelligence in a way that enables comparisons between two systems,
+as well as comparisons with humans. Over the past hundred years, there has been an abun-
+dance of attempts to deﬁne and measure intelligence, across both the ﬁelds of psychology
+and AI. We summarize and critically assess these deﬁnitions and evaluation approaches,
+while making apparent the two historical conceptions of intelligence that have implicitly
+guided them. We note that in practice, the contemporary AI community still gravitates to-
+wards benchmarking intelligence by comparing the skill exhibited by AIs and humans at
+speciﬁc tasks, such as board games and video games. We argue that solely measuring skill
+at any given task falls short of measuring intelligence, because skill is heavily modulated
+by prior knowledge and experience: unlimited priors or unlimited training data allow ex-
+perimenters to “buy” arbitrary levels of skills for a system, in a way that masks the system’s
+own generalization power. We then articulate a new formal deﬁnition of intelligence based
+on Algorithmic Information Theory, describing intelligence as skill-acquisition efﬁciency
+and highlighting the concepts of scope ,generalization difﬁculty ,priors , and experience , as
+critical pieces to be accounted for in characterizing intelligent systems. Using this deﬁ-
+nition, we propose a set of guidelines for what a general AI benchmark should look like.
+Finally, we present a new benchmark closely following these guidelines, the Abstraction
+and Reasoning Corpus (ARC), built upon an explicit set of priors designed to be as close as
+possible to innate human priors. We argue that ARC can be used to measure a human-like
+form of general ﬂuid intelligence and that it enables fair general intelligence comparisons
+between AI systems and humans.
+I thank Jos ´e Hern ´andez-Orallo, Julian Togelius, Christian Szegedy, and Martin Wicke for their valuable com-
+ments on the draft of this document.
+1arXiv:1911.01547v2  [cs.AI]  25 Nov 2019Contents
+I Context and history 3
+I.1 Need for an actionable deﬁnition and measure of intelligence . . . . . . . . 3
+I.2 Deﬁning intelligence: two divergent visions . . . . . . . . . . . . . . . . . 4
+I.2.1 Intelligence as a collection of task-speciﬁc skills . . . . . . . . . . . . 5
+I.2.2 Intelligence as a general learning ability . . . . . . . . . . . . . . . . . 6
+I.3 AI evaluation: from measuring skills to measuring broad abilities . . . . . . 7
+I.3.1 Skill-based, narrow AI evaluation . . . . . . . . . . . . . . . . . . . . 7
+I.3.2 The spectrum of generalization: robustness, ﬂexibility, generality . . . 9
+I.3.3 Measuring broad abilities and general intelligence: the psychometrics
+perspective . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 13
+I.3.4 Integrating AI evaluation and psychometrics . . . . . . . . . . . . . . 14
+I.3.5 Current trends in broad AI evaluation . . . . . . . . . . . . . . . . . . 16
+II A new perspective 18
+II.1 Critical assessment . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 18
+II.1.1 Measuring the right thing: evaluating skill alone does not move us
+forward . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 18
+II.1.2 The meaning of generality: grounding the g factor . . . . . . . . . . . 20
+II.1.3 Separating the innate from the acquired: insights from developmental
+psychology . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 24
+II.2 Deﬁning intelligence: a formal synthesis . . . . . . . . . . . . . . . . . . . 27
+II.2.1 Intelligence as skill-acquisition efﬁciency . . . . . . . . . . . . . . . . 27
+II.2.2 Computation efﬁciency, time efﬁciency, energy efﬁciency, and risk ef-
+ﬁciency . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 41
+II.2.3 Practical implications . . . . . . . . . . . . . . . . . . . . . . . . . . 42
+II.3 Evaluating intelligence in this light . . . . . . . . . . . . . . . . . . . . . . 43
+II.3.1 Fair comparisons between intelligent systems . . . . . . . . . . . . . . 43
+II.3.2 What to expect of an ideal intelligence benchmark . . . . . . . . . . . 45
+III A benchmark proposal: the ARC dataset 46
+III.1 Description and goals . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 46
+III.1.1 What is ARC? . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 46
+III.1.2 Core Knowledge priors . . . . . . . . . . . . . . . . . . . . . . . . . . 47
+III.1.3 Key differences with psychometric intelligence tests . . . . . . . . . . 50
+III.1.4 What a solution to ARC may look like, and what it would imply for AI
+applications . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 51
+III.2 Weaknesses and future reﬁnements . . . . . . . . . . . . . . . . . . . . . . 53
+III.3 Possible alternatives . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 55
+III.3.1 Repurposing skill benchmarks to measure broad generalization . . . . 55
+III.3.2 Open-ended adversarial or collaborative approaches . . . . . . . . . . 55
+2I Context and history
+I.1 Need for an actionable deﬁnition and measure of intelligence
+The promise of the ﬁeld of AI, spelled out explicitly at its inception in the 1950s and re-
+peated countless times since, is to develop machines that possess intelligence comparable
+to that of humans. But AI has since been falling short of its ideal: although we are able to
+engineer systems that perform extremely well on speciﬁc tasks, they have still stark limi-
+tations, being brittle, data-hungry, unable to make sense of situations that deviate slightly
+from their training data or the assumptions of their creators, and unable to repurpose them-
+selves to deal with novel tasks without signiﬁcant involvement from human researchers.
+If the only successes of AI have been in developing narrow, task-speciﬁc systems, it
+is perhaps because only within a very narrow and grounded context have we been able
+todeﬁne our goal sufﬁciently precisely, and to measure progress in an actionable way.
+Goal deﬁnitions and evaluation benchmarks are among the most potent drivers of scientiﬁc
+progress. To make progress towards the promise of our ﬁeld, we need precise, quantitative
+deﬁnitions and measures of intelligence – in particular human-like general intelligence.
+These would not be merely deﬁnitions and measures meant to describe or characterize
+intelligence, but precise, explanatory deﬁnitions meant to serve as a North Star, an objective
+function showing the way towards a clear target, capable of acting as a reliable measure of
+our progress and as a way to identify and highlight worthwhile new approaches that may
+not be immediately applicable, and would otherwise be discounted.
+For instance, common-sense dictionary deﬁnitions of intelligence may be useful to
+make sure we are talking about the same concepts, but they are not useful for our pur-
+pose, as they are not actionable, explanatory, or measurable. Similarly, the Turing Test
+[91] and its many variants (e.g. Total Turing Test and Loebner Prize [75]) are not useful
+as a driver of progress (and have in fact served as a red herring1), since such tests com-
+pletely opt out of objectively deﬁning and measuring intelligence, and instead outsource the
+task to unreliable human judges who themselves do not have clear deﬁnitions or evaluation
+protocols.
+It is a testimony to the immaturity of our ﬁeld that the question of what we mean when
+we talk about intelligence still doesn’t have a satisfying answer. What’s worse, very little
+attention has been devoted to rigorously deﬁning it or benchmarking our progress towards
+it. Legg and Hutter noted in a 2007 survey of intelligence deﬁnitions and evaluation meth-
+ods [53]: “to the best of our knowledge, no general survey of tests and deﬁnitions has been
+published” . A decade later, in 2017, Hern ´andez-Orallo released an extensive survey of
+evaluation methods [36] as well as a comprehensive book on AI evaluation [37]. Results
+and recommendations from both of these efforts have since been largely ignored by the
+community.
+We believe this lack of attention is a mistake, as the absence of widely-accepted ex-
+1Turing’s imitation game was largely meant as an argumentative device in a philosophical discussion, not as a
+literal test of intelligence. Mistaking it for a test representative of the goal of the ﬁeld of AI has been an ongoing
+problem.
+3plicit deﬁnitions has been substituted with implicit deﬁnitions and biases that stretch back
+decades. Though invisible, these biases are still structuring many research efforts today, as
+illustrated by our ﬁeld’s ongoing fascination with outperforming humans at board games or
+video games (a trend we discuss in I.3.5 and II.1). The goal of this document is to point
+out the implicit assumptions our ﬁeld has been working from, correct some of its most
+salient biases, and provide an actionable formal deﬁnition and measurement benchmark for
+human-like general intelligence, leveraging modern insight from developmental cognitive
+psychology.
+I.2 Deﬁning intelligence: two divergent visions
+Looked at in one way, everyone knows what
+intelligence is; looked at in another way, no
+one does.
+Robert J. Sternberg, 2000
+Many formal and informal deﬁnitions of intelligence have been proposed over the past
+few decades, although there is no existing scientiﬁc consensus around any single deﬁnition.
+Sternberg & Detterman noted in 1986 [87] that when two dozen prominent psychologists
+were asked to deﬁne intelligence, they all gave somewhat divergent answers. In the context
+of AI research, Legg and Hutter [53] summarized in 2007 no fewer than 70 deﬁnitions from
+the literature into a single statement: “Intelligence measures an agent’s ability to achieve
+goals in a wide range of environments. ”
+This summary points to two characterizations, which are nearly universally – but of-
+ten separately – found in deﬁnitions of intelligence: one with an emphasis on task-speciﬁc
+skill ( “achieving goals” ), and one focused on generality and adaptation ( “in a wide range
+of environments” ). In this view, an intelligent agent would achieve high skill across many
+different tasks (for instance, achieving high scores across many different video games). Im-
+plicitly here, the tasks may not necessarily be known in advance: to truly achieve generality,
+the agent would have to be able to learn to handle new tasks (skill acquisition).
+These two characterizations map to Catell’s 1971 theory of ﬂuid and crystallized intel-
+ligence (Gf-Gc) [13], which has become one of the pillars of the dominant theory of human
+cognitive abilities, the Cattell-Horn-Caroll theory (CHC) [62]. They also relate closely to
+two opposing views of the nature of the human mind that have been deeply inﬂuential in
+cognitive science since the inception of the ﬁeld [85]: one view in which the mind is a
+relatively static assembly of special-purpose mechanisms developed by evolution, only ca-
+pable of learning what is it programmed to acquire, and another view in which the mind is
+a general-purpose “blank slate” capable of turning arbitrary experience into knowledge and
+skills, and that could be directed at any problem.
+4A central point of this document is to make explicit and critically assess this dual deﬁ-
+nition that has been implicitly at the foundation of how we have been conceptualizing and
+evaluating intelligence in the context of AI research: crystallized skill on one hand, skill-
+acquisition ability on the other. Understanding this intellectual context and its ongoing
+inﬂuence is a necessary step before we can propose a formal deﬁnition of intelligence from
+a modern perspective.
+I.2.1 Intelligence as a collection of task-speciﬁc skills
+In the distant future I see open ﬁelds for far
+more important researches. Psychology will be
+based on a new foundation, that of the
+necessary acquirement of each mental power
+and capacity by gradation.
+Charles Darwin, 1859
+The evolutionary psychology view of human nature is that much of the human cognitive
+function is the result of special-purpose adaptations that arose to solve speciﬁc problems
+encountered by humans throughout their evolution (see e.g. [19, 74]) – an idea which orig-
+inated with Darwin [21] and that coalesced in the 1960s and 1970s. Around the same time
+that these ideas were gaining prominence in cognitive psychology, early AI researchers,
+perhaps seeing in electronic computers an analogue of the mind, mainly gravitated towards
+a view of intelligence as a set of static program-like routines, heavily relying on logical
+operators, and storing learned knowledge in a database-like memory.
+This vision of the mind as a wide collection of vertical, relatively static programs that
+collectively implement “intelligence”, was most prominently endorsed by inﬂuential AI
+pioneer Marvin Minsky (see e.g. The Society of Mind , 1986 [63]). This view gave rise
+to deﬁnitions of intelligence and evaluation protocols for intelligence that are focused on
+task-speciﬁc performance. This is perhaps best illustrated by Minsky’s 1968 deﬁnition of
+AI:“AI is the science of making machines capable of performing tasks that would require
+intelligence if done by humans”2. It was then widely accepted within the AI community
+that the “problem of intelligence” would be solved if only we could encode human skills
+into formal rules and encode human knowledge into explicit databases.
+This view of intelligence was once so dominant that “learning” (discounted as pure
+memorization) was often not even mentioned at all in AI textbooks until the mid-1980s.
+Even McCarthy, a rare advocate for generality in AI, believed that the key to achieving
+generality was better knowledge bases [60]. This deﬁnition and evaluation philosophy
+focused entirely on skill at narrow tasks normally handled by humans has led to a striking
+2Note the lingering inﬂuence of the Turing Test.
+5
